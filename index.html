@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隨機破冰問題產生器</title>
+<style>
+  /* ========== 莫蘭迪色系變數 ========== */
+  :root {
+    --bg: #F5F1EC;          /* 米白底色 */
+    --surface: #FBF9F6;     /* 卡片底色 */
+    --text: #5E544B;        /* 深灰褐文字 */
+    --muted: #9A8F84;       /* 次要文字 */
+    --line: #E6DED5;        /* 分隔線 */
+    --danger: #C98B85;      /* 刪除用的柔和紅 */
+    --shadow: 0 6px 20px rgba(120, 100, 80, 0.10);
+    --accent: #BFB5AA;      /* 目前分類的代表色（由 JS 切換） */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 28px 16px 40px;
+  }
+
+  /* ========== 畫面切換 ========== */
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.35s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ========== 首頁 ========== */
+  .home-header { text-align: center; margin-bottom: 28px; }
+  .home-header .logo { font-size: 40px; margin-bottom: 8px; }
+  .home-header h1 { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+  .home-header p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+  .cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .cat-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 18px 14px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border-bottom: 5px solid var(--c);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .cat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(120, 100, 80, 0.15); }
+  .cat-card:active { transform: scale(0.97); }
+  .cat-card.wide { grid-column: span 2; }
+
+  .cat-icon {
+    width: 56px; height: 56px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    background: var(--c-soft);
+  }
+  .cat-name { font-size: 17px; font-weight: 600; }
+  .cat-count { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .add-btn {
+    display: block;
+    width: 100%;
+    margin-top: 22px;
+    padding: 15px;
+    border-radius: 16px;
+    border: 2px dashed #CFC4B8;
+    color: var(--muted);
+    font-size: 16px;
+    font-weight: 600;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .add-btn:hover { background: #EFE9E2; color: var(--text); }
+
+  /* ========== 問題頁 ========== */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .icon-btn {
+    display: flex; align-items: center; gap: 4px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    font-size: 15px;
+    color: var(--muted);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .icon-btn:hover { background: #EBE4DC; color: var(--text); }
+  .icon-btn.trash:hover { background: #F3E1DE; color: var(--danger); }
+  .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; background: none; color: var(--muted); }
+
+  .q-header { text-align: center; margin-bottom: 18px; }
+  .q-header .big-icon {
+    width: 72px; height: 72px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    background: var(--accent);
+    box-shadow: var(--shadow);
+  }
+  .q-header h2 { font-size: 20px; font-weight: 700; }
+
+  .card-wrap { perspective: 900px; }
+
+  .q-card {
+    background: var(--surface);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    min-height: 240px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-top: 8px solid var(--accent);
+  }
+  .q-card.flip { animation: flipIn 0.45s ease; }
+
+  @keyframes flipIn {
+    0%   { transform: rotateY(90deg); opacity: 0; }
+    100% { transform: rotateY(0); opacity: 1; }
+  }
+
+  .q-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 18px; }
+  .q-tag {
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--tag-bg);
+    color: var(--text);
+  }
+
+  .q-text { font-size: 22px; line-height: 1.6; font-weight: 600; }
+  .q-placeholder { color: var(--muted); font-size: 17px; line-height: 1.8; }
+  .q-placeholder .emoji { font-size: 40px; display: block; margin-bottom: 8px; }
+
+  .counter {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+    margin: 18px 0 14px;
+  }
+  .counter b { color: var(--text); font-size: 17px; }
+
+  .progress {
+    height: 6px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0 auto 20px;
+    max-width: 240px;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width 0.35s ease;
+  }
+
+  .main-btn {
+    display: block;
+    width: 100%;
+    padding: 17px;
+    border-radius: 18px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    box-shadow: var(--shadow);
+    text-shadow: 0 1px 2px rgba(90, 70, 50, 0.25);
+    transition: transform 0.15s ease, filter 0.2s ease;
+  }
+  .main-btn:hover { filter: brightness(0.96); }
+  .main-btn:active { transform: scale(0.97); }
+
+  .empty-btn {
+    margin-top: 16px;
+    padding: 10px 18px;
+    border-radius: 12px;
+    background: #EBE4DC;
+    font-size: 15px;
+  }
+
+  /* ========== 彈出視窗 ========== */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(94, 84, 75, 0.35);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .overlay.open { display: flex; animation: fadeIn 0.25s ease; }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 22px;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 20px;
+    box-shadow: 0 16px 40px rgba(94, 84, 75, 0.25);
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h3 { font-size: 19px; margin-bottom: 16px; text-align: center; }
+  .modal label.field-label { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 8px; }
+
+  .modal textarea {
+    width: 100%;
+    min-height: 90px;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 16px;
+    color: var(--text);
+    background: #fff;
+    resize: vertical;
+    outline: none;
+  }
+  .modal textarea:focus { border-color: #BFB5AA; }
+
+  .char-count { text-align: right; font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip input { display: none; }
+  .chip span {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    font-size: 15px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+  }
+  .chip input:checked + span {
+    background: var(--c);
+    border-color: var(--c);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(90, 70, 50, 0.25);
+  }
+
+  .error-msg { color: var(--danger); font-size: 14px; min-height: 20px; margin-top: 12px; text-align: center; }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 8px; }
+  .modal-actions button {
+    flex: 1;
+    padding: 13px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .btn-cancel { background: #EBE4DC; }
+  .btn-ok { background: #A8B8A0; color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+
+  .reset-link {
+    display: block;
+    margin: 18px auto 0;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: underline;
+  }
+
+  .confirm-text { text-align: center; line-height: 1.7; margin-bottom: 20px; }
+
+  /* ========== 提示訊息 ========== */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 32px;
+    transform: translateX(-50%) translateY(20px);
+    background: #6E635A;
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 100;
+    max-width: calc(100% - 32px);
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer { text-align: center; color: #BDB2A6; font-size: 12px; margin-top: 32px; }
+
+  /* ========== 首頁：題庫總覽欄位 ========== */
+  .browse-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    margin-top: 14px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    text-align: left;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .browse-card:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(120, 100, 80, 0.15); }
+  .browse-card:active { transform: scale(0.98); }
+  .browse-card .cat-icon { margin: 0; flex-shrink: 0; background: #E6DED5; }
+  .browse-card .arrow { margin-left: auto; color: var(--muted); font-size: 22px; }
+
+  /* ========== 全部題目頁 ========== */
+  .page-title { text-align: center; margin-bottom: 16px; }
+  .page-title h2 { font-size: 20px; }
+  .page-title p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 18px; }
+  .filter-chip {
+    padding: 7px 13px;
+    border-radius: 999px;
+    border: 1.5px solid var(--line);
+    font-size: 14px;
+    background: var(--surface);
+    transition: all 0.2s ease;
+  }
+  .filter-chip.active {
+    background: var(--c);
+    border-color: var(--c);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(90, 70, 50, 0.25);
+  }
+
+  .list-item {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 3px 12px rgba(120, 100, 80, 0.07);
+  }
+  .li-text { font-size: 16px; line-height: 1.6; }
+  .li-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 10px; }
+  .li-foot .q-tags { justify-content: flex-start; margin: 0; }
+  .li-edit {
+    flex-shrink: 0;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1.5px dashed #CFC4B8;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .li-edit:hover { background: #EFE9E2; color: var(--text); }
+  .list-empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+  .edit-target {
+    background: #F3EEE7;
+    border-radius: 12px;
+    padding: 12px;
+    line-height: 1.6;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  /* ========== 新增題目：相似題目提示 ========== */
+  .similar-box {
+    margin-top: 10px;
+    background: #F3EEE7;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  .similar-box[hidden] { display: none; }
+  .similar-title { color: #A8826F; font-weight: 600; margin-bottom: 4px; }
+  .sim-item { padding: 6px 0; border-top: 1px dashed var(--line); }
+  .sim-item:first-of-type { border-top: none; }
+  .sim-text { font-size: 14px; line-height: 1.5; }
+  .sim-text mark { background: rgba(217, 196, 160, 0.55); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .sim-kws { margin-top: 3px; color: var(--muted); }
+  .kw { display: inline-block; background: #E6DED5; border-radius: 6px; padding: 1px 6px; margin: 2px 3px 0 0; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ========== ① 分類選擇頁 ========== -->
+  <section id="homeView" class="view active">
+    <header class="home-header">
+      <div class="logo">💬</div>
+      <h1>隨機破冰問題產生器</h1>
+      <p>選一個分類，抽一題來聊聊吧</p>
+    </header>
+
+    <div id="catGrid" class="cat-grid"></div>
+
+    <button id="openListBtn" class="browse-card">
+      <div class="cat-icon">📚</div>
+      <div>
+        <div class="cat-name">查看全部題目</div>
+        <div id="browseCount" class="cat-count">共 0 題</div>
+      </div>
+      <span class="arrow">›</span>
+    </button>
+
+    <button id="openAddBtn" class="add-btn">＋ 新增題目</button>
+
+    <footer>題目會保存在你目前使用的瀏覽器中</footer>
+  </section>
+
+  <!-- ========== ② 問題頁 ========== -->
+  <section id="questionView" class="view">
+    <div class="topbar">
+      <button id="backBtn" class="icon-btn" aria-label="返回">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        返回
+      </button>
+      <button id="trashBtn" class="icon-btn trash" aria-label="刪除這題" title="刪除這題">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
+    </div>
+
+    <div class="q-header">
+      <div id="qBigIcon" class="big-icon">🎲</div>
+      <h2 id="qCatName">隨機抽取</h2>
+    </div>
+
+    <div class="card-wrap">
+      <div id="qCard" class="q-card"></div>
+    </div>
+
+    <div id="counterWrap">
+      <div class="counter">已抽 <b id="drawnNum">0</b> / <span id="totalNum">0</span> 題</div>
+      <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+    </div>
+
+    <button id="drawBtn" class="main-btn">抽一題</button>
+  </section>
+
+  <!-- ========== ④ 全部題目頁 ========== -->
+  <section id="listView" class="view">
+    <div class="topbar">
+      <button id="listBackBtn" class="icon-btn" aria-label="返回">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        返回
+      </button>
+    </div>
+
+    <div class="page-title">
+      <h2>📚 全部題目</h2>
+      <p id="listCount">共 0 題</p>
+    </div>
+
+    <div id="filterBar" class="filter-bar"></div>
+    <div id="questionList"></div>
+  </section>
+
+</div>
+
+<!-- ========== 編輯題目分類視窗 ========== -->
+<div id="catOverlay" class="overlay">
+  <div class="modal" role="dialog" aria-labelledby="catTitle">
+    <h3 id="catTitle">🏷️ 編輯分類</h3>
+    <p id="editTarget" class="edit-target"></p>
+
+    <label class="field-label">這題要放在哪些分類（可複選）</label>
+    <div id="editChipGroup" class="chip-group"></div>
+
+    <div id="catError" class="error-msg"></div>
+
+    <div class="modal-actions">
+      <button id="cancelCatBtn" class="btn-cancel">取消</button>
+      <button id="saveCatBtn" class="btn-ok">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ③ 新增題目視窗 ========== -->
+<div id="addOverlay" class="overlay">
+  <div class="modal" role="dialog" aria-labelledby="addTitle">
+    <h3 id="addTitle">✏️ 新增題目</h3>
+
+    <label class="field-label" for="newQuestion">題目內容</label>
+    <textarea id="newQuestion" maxlength="100" placeholder="例如：你最喜歡的早餐是什麼？"></textarea>
+    <div class="char-count"><span id="charNum">0</span> / 100</div>
+    <div id="similarBox" class="similar-box" hidden></div>
+
+    <label class="field-label">加入分類（可複選）</label>
+    <div id="chipGroup" class="chip-group"></div>
+
+    <div id="addError" class="error-msg"></div>
+
+    <div class="modal-actions">
+      <button id="cancelAddBtn" class="btn-cancel">取消</button>
+      <button id="confirmAddBtn" class="btn-ok">加入</button>
+    </div>
+
+    <button id="resetBtn" class="reset-link">恢復預設題庫</button>
+  </div>
+</div>
+
+<!-- ========== 確認視窗（刪除 / 還原共用） ========== -->
+<div id="confirmOverlay" class="overlay">
+  <div class="modal" role="alertdialog">
+    <h3 id="confirmTitle">確認</h3>
+    <p id="confirmText" class="confirm-text"></p>
+    <div class="modal-actions">
+      <button id="confirmNo" class="btn-cancel">取消</button>
+      <button id="confirmYes" class="btn-danger">確定</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* =========================================================
+   分類設定：名稱、圖示、代表色
+   ========================================================= */
+const CATEGORIES = {
+  first:   { name: "初次見面", icon: "👋", color: "#A3B5C7" },
+  friends: { name: "朋友",     icon: "🤝", color: "#A8B8A0" },
+  couple:  { name: "情侶",     icon: "💕", color: "#D4A5A5" },
+  deep:    { name: "深度聊天", icon: "🌙", color: "#B5A8C2" },
+  funny:   { name: "搞笑",     icon: "😂", color: "#D9C4A0" }
+};
+const ALL_CATEGORY = { name: "隨機抽取", icon: "🎲", color: "#BFB5AA" };
+const CATEGORY_KEYS = Object.keys(CATEGORIES);
+
+/* =========================================================
+   ★ 預設題庫 ★
+   想讓「所有人」都看到的題目，就改這裡，再重新上傳到 GitHub
+   ========================================================= */
+const DEFAULT_QUESTIONS = {
+  first: [
+    "如果可以免費去任何國家，你會去哪裡？",
+    "你平常放假最喜歡做什麼？",
+    "你最近在追的劇或常聽的歌是什麼？",
+    "你是早起派還是夜貓子？",
+    "如果只能吃一種料理一輩子，你會選什麼？",
+    "你覺得自己最像哪一種動物？為什麼？",
+    "你小時候的夢想職業是什麼？",
+    "最近讓你覺得開心的一件小事是什麼？",
+    "你比較喜歡山還是海？",
+    "有什麼興趣是你最近想開始嘗試的？"
+  ],
+  friends: [
+    "你做過最衝動的一件事是什麼？",
+    "我們第一次見面時，你對我的印象是什麼？",
+    "你手機裡最常用的 App 是哪一個？",
+    "如果我們一起去旅行，你覺得誰會負責迷路？",
+    "你最近一次笑到停不下來是因為什麼？",
+    "有什麼事是你一直想做但還沒做的？",
+    "你最難忘的一次聚會是哪一次？",
+    "你覺得朋友之間最重要的是什麼？",
+    "如果中了一百萬，你第一件事會做什麼？",
+    "你有什麼別人不知道的隱藏才藝？"
+  ],
+  couple: [
+    "你第一次注意到我是什麼時候？",
+    "你最喜歡我們一起做的哪件事？",
+    "你心中完美的約會是什麼樣子？",
+    "我做過哪件小事讓你特別感動？",
+    "如果可以重溫我們的某一天，你會選哪一天？",
+    "你覺得我們最像的地方是什麼？",
+    "你最想跟我一起去哪裡旅行？",
+    "你什麼時候會覺得最被愛？",
+    "十年後的我們，你希望是什麼樣子？",
+    "有什麼話是你一直想對我說，但還沒說出口的？"
+  ],
+  deep: [
+    "有什麼想法是你這幾年改變最多的？",
+    "你覺得什麼樣的生活才算是幸福？",
+    "如果能對十年前的自己說一句話，你會說什麼？",
+    "你最害怕失去的是什麼？",
+    "人生中哪個決定對你影響最大？",
+    "你覺得自己最大的優點和缺點是什麼？",
+    "有什麼時刻讓你覺得「活著真好」？",
+    "你從失敗中學到最重要的一課是什麼？",
+    "你希望別人怎麼記得你？",
+    "如果生命只剩一年，你會怎麼度過？"
+  ],
+  funny: [
+    "如果能擁有一種超能力，但只能用在很無聊的地方，你會選什麼？",
+    "如果你是一種食物，你會是什麼？",
+    "你做過最丟臉的事是什麼？",
+    "如果動物會說話，你覺得哪一種動物最吵？",
+    "如果你的人生是一部電影，片名會叫什麼？",
+    "你寧願一輩子只能用跑的，還是只能用跳的？",
+    "如果可以讓任何一個卡通角色當你的室友，你會選誰？",
+    "你手機相簿裡最奇怪的一張照片是什麼？",
+    "如果你突然變成一隻貓，第一件事會做什麼？",
+    "你聽過最冷的冷笑話是什麼？"
+  ]
+};
+
+/* =========================================================
+   題庫資料：每題格式 { id, text, cats: ["first", ...] }
+   ========================================================= */
+const STORAGE_KEY = "icebreaker-questions-v1";
+
+function buildDefaults() {
+  const list = [];
+  CATEGORY_KEYS.forEach(cat => {
+    DEFAULT_QUESTIONS[cat].forEach((text, i) => {
+      list.push({ id: `${cat}-${i}`, text, cats: [cat] });
+    });
+  });
+  return list;
+}
+
+function loadQuestions() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (Array.isArray(data)) return data;
+    }
+  } catch (e) { /* 無法讀取時使用預設題庫 */ }
+  return buildDefaults();
+}
+
+function saveQuestions() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(questions)); }
+  catch (e) { /* 無法儲存時仍可正常使用，只是不會保留 */ }
+}
+
+let questions = loadQuestions();
+
+/* =========================================================
+   抽題狀態
+   ========================================================= */
+const state = {
+  cat: "all",      // 目前分類
+  deck: [],        // 這一輪還沒抽到的題目 id
+  currentId: null  // 目前顯示的題目 id
+};
+
+function getCategoryInfo(cat) {
+  return cat === "all" ? ALL_CATEGORY : CATEGORIES[cat];
+}
+
+function poolIds(cat) {
+  const list = cat === "all" ? questions : questions.filter(q => q.cats.includes(cat));
+  return list.map(q => q.id);
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* =========================================================
+   畫面元素
+   ========================================================= */
+const $ = id => document.getElementById(id);
+const homeView = $("homeView");
+const questionView = $("questionView");
+const listView = $("listView");
+const qCard = $("qCard");
+
+function showView(view) {
+  [homeView, questionView, listView].forEach(v => v.classList.remove("active"));
+  view.classList.add("active");
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 首頁 ---------- */
+function renderHome() {
+  const grid = $("catGrid");
+  grid.innerHTML = "";
+
+  const keys = [...CATEGORY_KEYS, "all"];
+  keys.forEach(cat => {
+    const info = getCategoryInfo(cat);
+    const btn = document.createElement("button");
+    btn.className = "cat-card";
+    btn.style.setProperty("--c", info.color);
+    btn.style.setProperty("--c-soft", info.color + "66");
+    btn.innerHTML = `
+      <div class="cat-icon">${info.icon}</div>
+      <div class="cat-name">${info.name}</div>
+      <div class="cat-count">${poolIds(cat).length} 題</div>`;
+    btn.addEventListener("click", () => enterCategory(cat));
+    grid.appendChild(btn);
+  });
+
+  $("browseCount").textContent = `共 ${questions.length} 題，可編輯分類`;
+}
+
+/* ---------- 全部題目頁 ---------- */
+let listFilter = "all";
+let editingId = null;
+
+function makeTags(cats) {
+  const tags = document.createElement("div");
+  tags.className = "q-tags";
+  cats.forEach(c => {
+    const info = CATEGORIES[c];
+    if (!info) return;
+    const tag = document.createElement("span");
+    tag.className = "q-tag";
+    tag.style.setProperty("--tag-bg", info.color + "55");
+    tag.textContent = `${info.icon} ${info.name}`;
+    tags.appendChild(tag);
+  });
+  return tags;
+}
+
+function openList() {
+  listFilter = "all";
+  renderList();
+  showView(listView);
+}
+
+function renderList() {
+  // 篩選按鈕：全部 + 五個分類
+  const bar = $("filterBar");
+  bar.innerHTML = "";
+  [["all", { name: "全部", icon: "📚", color: "#BFB5AA" }], ...CATEGORY_KEYS.map(k => [k, CATEGORIES[k]])]
+    .forEach(([key, info]) => {
+      const chip = document.createElement("button");
+      chip.className = "filter-chip" + (listFilter === key ? " active" : "");
+      chip.style.setProperty("--c", info.color);
+      chip.textContent = `${info.icon} ${info.name}`;
+      chip.addEventListener("click", () => { listFilter = key; renderList(); });
+      bar.appendChild(chip);
+    });
+
+  const shown = listFilter === "all" ? questions : questions.filter(q => q.cats.includes(listFilter));
+  $("listCount").textContent = listFilter === "all"
+    ? `共 ${questions.length} 題`
+    : `${CATEGORIES[listFilter].name}：${shown.length} 題（全部共 ${questions.length} 題）`;
+
+  const list = $("questionList");
+  list.innerHTML = "";
+  if (shown.length === 0) {
+    list.innerHTML = `<div class="list-empty">這個分類目前沒有題目 🍃</div>`;
+    return;
+  }
+
+  shown.forEach(q => {
+    const item = document.createElement("div");
+    item.className = "list-item";
+
+    const text = document.createElement("p");
+    text.className = "li-text";
+    text.textContent = q.text;
+
+    const foot = document.createElement("div");
+    foot.className = "li-foot";
+    const edit = document.createElement("button");
+    edit.className = "li-edit";
+    edit.textContent = "＋ 分類";
+    edit.addEventListener("click", () => openCatModal(q.id));
+    foot.appendChild(makeTags(q.cats));
+    foot.appendChild(edit);
+
+    item.appendChild(text);
+    item.appendChild(foot);
+    list.appendChild(item);
+  });
+}
+
+function buildChipsInto(groupId) {
+  const group = $(groupId);
+  group.innerHTML = "";
+  CATEGORY_KEYS.forEach(cat => {
+    const info = CATEGORIES[cat];
+    const label = document.createElement("label");
+    label.className = "chip";
+    label.style.setProperty("--c", info.color);
+    label.innerHTML = `<input type="checkbox" value="${cat}"><span>${info.icon} ${info.name}</span>`;
+    group.appendChild(label);
+  });
+}
+
+function openCatModal(id) {
+  const q = questions.find(x => x.id === id);
+  if (!q) return;
+  editingId = id;
+  $("editTarget").textContent = q.text;
+  $("catError").textContent = "";
+  document.querySelectorAll("#editChipGroup input").forEach(cb => {
+    cb.checked = q.cats.includes(cb.value);
+  });
+  $("catOverlay").classList.add("open");
+}
+
+function closeCatModal() {
+  $("catOverlay").classList.remove("open");
+  editingId = null;
+}
+
+function saveCats() {
+  const q = questions.find(x => x.id === editingId);
+  if (!q) { closeCatModal(); return; }
+  const cats = [...document.querySelectorAll("#editChipGroup input:checked")].map(cb => cb.value);
+  if (cats.length === 0) { $("catError").textContent = "每題至少要屬於一個分類"; return; }
+
+  const added = cats.filter(c => !q.cats.includes(c));
+  q.cats = CATEGORY_KEYS.filter(c => cats.includes(c)); // 依固定順序排列
+  saveQuestions();
+  closeCatModal();
+  renderList();
+  renderHome();
+  showToast(added.length
+    ? "已加入：" + added.map(c => CATEGORIES[c].name).join("、")
+    : "分類已更新");
+}
+
+/* ---------- 問題頁 ---------- */
+function enterCategory(cat) {
+  state.cat = cat;
+  state.deck = shuffle(poolIds(cat));
+  state.currentId = null;
+
+  const info = getCategoryInfo(cat);
+  document.documentElement.style.setProperty("--accent", info.color);
+  $("qBigIcon").textContent = info.icon;
+  $("qCatName").textContent = info.name;
+
+  renderQuestion(false);
+  showView(questionView);
+}
+
+function drawQuestion() {
+  const pool = poolIds(state.cat);
+  if (pool.length === 0) { renderQuestion(false); return; }
+
+  // 這一輪抽完了 → 重新洗牌
+  if (state.deck.length === 0) {
+    state.deck = shuffle(pool);
+    // 避免新一輪第一題和剛剛那題相同
+    const last = state.deck.length - 1;
+    if (state.deck.length > 1 && state.deck[last] === state.currentId) {
+      [state.deck[0], state.deck[last]] = [state.deck[last], state.deck[0]];
+    }
+    showToast("這輪抽完了，重新洗牌囉！🔄");
+  }
+
+  state.currentId = state.deck.pop();
+  renderQuestion(true);
+}
+
+function renderQuestion(animate) {
+  const pool = poolIds(state.cat);
+  const current = questions.find(q => q.id === state.currentId);
+
+  qCard.innerHTML = "";
+
+  if (pool.length === 0) {
+    // 分類沒有題目
+    qCard.innerHTML = `
+      <div class="q-placeholder">
+        <span class="emoji">🍃</span>
+        這個分類沒有題目了，<br>去新增一些吧！
+      </div>`;
+    const goAdd = document.createElement("button");
+    goAdd.className = "empty-btn";
+    goAdd.textContent = "＋ 新增題目";
+    goAdd.addEventListener("click", () => { showView(homeView); openAddModal(); });
+    qCard.appendChild(goAdd);
+    $("counterWrap").style.display = "none";
+    $("drawBtn").style.display = "none";
+    $("trashBtn").disabled = true;
+    return;
+  }
+
+  $("counterWrap").style.display = "";
+  $("drawBtn").style.display = "";
+
+  if (!current) {
+    qCard.innerHTML = `
+      <div class="q-placeholder">
+        <span class="emoji">✨</span>
+        準備好了嗎？<br>點下方按鈕抽一題
+      </div>`;
+  } else {
+    // 題目上方的分類小圖示
+    const tags = document.createElement("div");
+    tags.className = "q-tags";
+    current.cats.forEach(c => {
+      const info = CATEGORIES[c];
+      if (!info) return;
+      const tag = document.createElement("span");
+      tag.className = "q-tag";
+      tag.style.setProperty("--tag-bg", info.color + "55");
+      tag.textContent = `${info.icon} ${info.name}`;
+      tags.appendChild(tag);
+    });
+
+    const text = document.createElement("p");
+    text.className = "q-text";
+    text.textContent = current.text;
+
+    qCard.appendChild(tags);
+    qCard.appendChild(text);
+  }
+
+  // 計數器：已抽題數 = 總題數 - 這輪還沒抽的題數
+  const total = pool.length;
+  const drawn = total - state.deck.length;
+  $("drawnNum").textContent = drawn;
+  $("totalNum").textContent = total;
+  $("progressBar").style.width = (drawn / total * 100) + "%";
+
+  $("drawBtn").textContent = current ? "換一題" : "抽一題";
+  $("trashBtn").disabled = !current;
+
+  if (animate) {
+    qCard.classList.remove("flip");
+    void qCard.offsetWidth; // 重新觸發動畫
+    qCard.classList.add("flip");
+  }
+}
+
+async function deleteCurrent() {
+  const current = questions.find(q => q.id === state.currentId);
+  if (!current) return;
+
+  const ok = await confirmDialog(
+    "🗑️ 刪除題目",
+    `確定要刪除這題嗎？<br><b>「${escapeHtml(current.text)}」</b>`,
+    "刪除"
+  );
+  if (!ok) return;
+
+  questions = questions.filter(q => q.id !== current.id);
+  state.deck = state.deck.filter(id => id !== current.id);
+  saveQuestions();
+  renderHome();
+  showToast("已刪除這題");
+
+  if (poolIds(state.cat).length === 0) {
+    state.currentId = null;
+    renderQuestion(false);
+  } else {
+    drawQuestion(); // 自動顯示下一題
+  }
+}
+
+/* ---------- 相似題目偵測 ----------
+   中文沒有空格分詞，所以把句子切成「兩字一組」（例如「旅行」「國家」），
+   比對新題目和現有題目有哪些相同的兩字詞，連在一起的會合併成較長的關鍵字。
+   「什麼」「如果」這類幾乎每題都有的詞會被忽略，避免誤判。 */
+const STOP_WORDS = new Set([
+  "什麼", "如果", "你會", "你覺", "覺得", "你最", "一個", "一種", "哪一", "是什",
+  "會選", "選什", "你的", "可以", "有什", "為什", "是哪", "哪個", "一件", "件事",
+  "你有", "你是", "是你", "的是", "麼是", "你在", "你們", "我們"
+]);
+
+function normalize(str) {
+  return str.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, "");
+}
+
+function bigramSet(str) {
+  const n = normalize(str);
+  const set = new Set();
+  for (let i = 0; i < n.length - 1; i++) set.add(n.slice(i, i + 2));
+  return set;
+}
+
+// 出現在很多題目裡的詞，視為常用詞忽略
+function frequentBigrams() {
+  const count = {};
+  questions.forEach(q => bigramSet(q.text).forEach(b => { count[b] = (count[b] || 0) + 1; }));
+  const limit = Math.max(5, questions.length * 0.12);
+  return new Set(Object.keys(count).filter(b => count[b] > limit));
+}
+
+function findSimilar(text) {
+  const n = normalize(text);
+  if (n.length < 2) return [];
+  const frequent = frequentBigrams();
+  const results = [];
+
+  questions.forEach(q => {
+    const qSet = bigramSet(q.text);
+    const exact = normalize(q.text) === n;
+    const hits = [];
+    for (let i = 0; i < n.length - 1; i++) {
+      const b = n.slice(i, i + 2);
+      if (!STOP_WORDS.has(b) && !frequent.has(b) && qSet.has(b)) hits.push(i);
+    }
+    if (!hits.length && !exact) return;
+
+    // 把相鄰的兩字詞合併成較長的關鍵字
+    const keywords = [];
+    let start = hits[0], prev = hits[0];
+    for (let k = 1; k <= hits.length; k++) {
+      if (hits[k] === prev + 1) { prev = hits[k]; continue; }
+      if (start !== undefined) keywords.push(n.slice(start, prev + 2));
+      start = prev = hits[k];
+    }
+    results.push({ q, exact, score: hits.length, keywords: [...new Set(keywords)] });
+  });
+
+  results.sort((a, b) => (b.exact - a.exact) || (b.score - a.score));
+  return results.slice(0, 3);
+}
+
+function highlight(text, keywords) {
+  let html = escapeHtml(text);
+  keywords
+    .slice().sort((a, b) => b.length - a.length)
+    .forEach(kw => {
+      const safe = escapeHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      html = html.replace(new RegExp(`(?![^<]*>)${safe}`, "gi"), m => `<mark>${m}</mark>`);
+    });
+  return html;
+}
+
+function renderSimilar() {
+  const box = $("similarBox");
+  const matches = findSimilar($("newQuestion").value);
+  if (!matches.length) { box.hidden = true; box.innerHTML = ""; return; }
+
+  box.hidden = false;
+  box.innerHTML = `<div class="similar-title">⚠️ 可能重複的題目</div>` + matches.map(m => `
+    <div class="sim-item">
+      <div class="sim-text">${highlight(m.q.text, m.keywords)}</div>
+      <div class="sim-kws">${m.exact
+        ? "這題已經存在題庫中"
+        : "相同關鍵字：" + m.keywords.map(k => `<span class="kw">${escapeHtml(k)}</span>`).join("")}</div>
+    </div>`).join("");
+}
+
+/* ---------- 新增題目 ---------- */
+function openAddModal() {
+  $("newQuestion").value = "";
+  $("charNum").textContent = "0";
+  $("addError").textContent = "";
+  $("similarBox").hidden = true;
+  document.querySelectorAll("#chipGroup input").forEach(cb => cb.checked = false);
+  $("addOverlay").classList.add("open");
+  setTimeout(() => $("newQuestion").focus(), 100);
+}
+
+function closeAddModal() {
+  $("addOverlay").classList.remove("open");
+}
+
+function addQuestion() {
+  const text = $("newQuestion").value.trim();
+  const cats = [...document.querySelectorAll("#chipGroup input:checked")].map(cb => cb.value);
+  const error = $("addError");
+
+  if (!text) { error.textContent = "請輸入題目內容"; return; }
+  if (cats.length === 0) { error.textContent = "請至少選擇一個分類"; return; }
+  if (questions.some(q => q.text === text)) { error.textContent = "這題已經有了"; return; }
+
+  questions.push({
+    id: "user-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+    text,
+    cats
+  });
+  saveQuestions();
+  renderHome();
+  closeAddModal();
+  showToast("已新增到：" + cats.map(c => CATEGORIES[c].name).join("、"));
+}
+
+async function resetQuestions() {
+  closeAddModal();
+  const ok = await confirmDialog(
+    "↺ 恢復預設題庫",
+    "你新增的題目會被清除，<br>刪除過的預設題目會回來。<br>確定要恢復嗎？",
+    "恢復"
+  );
+  if (!ok) return;
+  questions = buildDefaults();
+  saveQuestions();
+  renderHome();
+  showToast("已恢復預設題庫");
+}
+
+/* ---------- 共用：確認視窗 ---------- */
+function confirmDialog(title, html, okText) {
+  return new Promise(resolve => {
+    $("confirmTitle").textContent = title;
+    $("confirmText").innerHTML = html;
+    $("confirmYes").textContent = okText;
+    const overlay = $("confirmOverlay");
+    overlay.classList.add("open");
+
+    const finish = result => {
+      overlay.classList.remove("open");
+      $("confirmYes").onclick = null;
+      $("confirmNo").onclick = null;
+      overlay.onclick = null;
+      resolve(result);
+    };
+    $("confirmYes").onclick = () => finish(true);
+    $("confirmNo").onclick = () => finish(false);
+    overlay.onclick = e => { if (e.target === overlay) finish(false); };
+  });
+}
+
+/* ---------- 共用：提示訊息 ---------- */
+let toastTimer;
+function showToast(msg) {
+  const toast = $("toast");
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* =========================================================
+   綁定事件
+   ========================================================= */
+$("backBtn").addEventListener("click", () => { renderHome(); showView(homeView); });
+$("drawBtn").addEventListener("click", drawQuestion);
+$("trashBtn").addEventListener("click", deleteCurrent);
+
+$("openAddBtn").addEventListener("click", openAddModal);
+$("cancelAddBtn").addEventListener("click", closeAddModal);
+$("confirmAddBtn").addEventListener("click", addQuestion);
+$("resetBtn").addEventListener("click", resetQuestions);
+$("addOverlay").addEventListener("click", e => { if (e.target === $("addOverlay")) closeAddModal(); });
+
+$("newQuestion").addEventListener("input", e => {
+  $("charNum").textContent = e.target.value.length;
+  $("addError").textContent = "";
+  renderSimilar();
+});
+$("chipGroup").addEventListener("change", () => { $("addError").textContent = ""; });
+
+$("openListBtn").addEventListener("click", openList);
+$("listBackBtn").addEventListener("click", () => { renderHome(); showView(homeView); });
+$("cancelCatBtn").addEventListener("click", closeCatModal);
+$("saveCatBtn").addEventListener("click", saveCats);
+$("catOverlay").addEventListener("click", e => { if (e.target === $("catOverlay")) closeCatModal(); });
+$("editChipGroup").addEventListener("change", () => { $("catError").textContent = ""; });
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closeAddModal(); closeCatModal(); }
+});
+
+/* 啟動 */
+buildChipsInto("chipGroup");
+buildChipsInto("editChipGroup");
+renderHome();
+</script>
+</body>
+</html>
